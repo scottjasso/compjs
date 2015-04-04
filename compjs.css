@@ -1,0 +1,23 @@
+html {
+  position: relative;
+  min-height: 100%;
+}
+
+body {
+  /* Margin bottom by footer height */
+  padding-top: 50px;
+  margin-bottom: 160px;
+}
+
+.footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  /* Set the fixed height of the footer here */
+  height: 160px;
+  background-color: #f5f5f5;
+}
+
+.viewport {
+  max-height: calc(100vh - 210px);
+}
