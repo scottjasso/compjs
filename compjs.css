@@ -4,20 +4,69 @@ html {
 }
 
 body {
-  /* Margin bottom by footer height */
   padding-top: 50px;
-  margin-bottom: 160px;
 }
 
-.footer {
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  /* Set the fixed height of the footer here */
-  height: 160px;
-  background-color: #f5f5f5;
+html, body, .controller {
+  height: 100%;
+}
+
+.controller {
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  min-height: 400px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .viewport {
-  max-height: calc(100vh - 210px);
+  flex: 1;
+  font-family: monospace;
+}
+
+.footer {
+  width: 100%;
+  background-color: #f5f5f5;
+}
+
+.table-headers {
+  margin-bottom: 0;
+  width: auto;
+  margin-right: 17px;
+}
+
+.button-row {
+  margin-top: 15px;
+}
+
+.button-row .col-sm-3 {
+  padding: 0; 
+}
+
+.mem-hex {
+  color: blue;
+}
+
+.mem-decimal {
+  color: red; 
+}
+
+.mem-binary {
+  color: white;
+  background-color: black;
+}
+
+.info .mem-binary {
+  color: black; 
+}
+
+.plain-input {
+  width: 100%;
+  background-color: inherit;
+  border: 0;
+  padding: 0;
 }

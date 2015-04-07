@@ -297,9 +297,9 @@ mod.directive("sfScroller", function(){
         // - The total number of elements
         state.total = 0;
         // - The point at which we add new elements
-        state.lowWater = state.lowWater || 100;
+        state.lowWater = 20;
         // - The point at which we remove old elements
-        state.highWater = state.highWater || 300;
+        state.highWater = 30;
         // TODO: now watch the water marks
 
         setContentCss(dom.content);

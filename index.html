@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-ng-app="complxApp" data-ng-strict-di>
+<html lang="en" data-ng-strict-di>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Complx in the browser">
     <meta name="author" content="Scott Johnson">
-    <title>compJs</title>
+    <title>compjs</title>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js"></script>
     <link rel="shortcut icon" href="">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
@@ -13,74 +13,194 @@
     <link rel="stylesheet" href="compjs.css">
 </head>
 <body>
-  <div data-ng-controller="complxController">
+  <div class="controller" data-ng-controller="complxController">
     <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
       <div class="container">
         <div class="navbar-header">
+          <!-- Mobile -->
           <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
             <span class="sr-only">Toggle navigation</span>
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
-          </button>
-          <a class="navbar-brand" href="#">Project name</a>
+          </button>>
+          <!-- /Moible -->
+          <a class="navbar-brand" href="#">CompJs</a>
         </div>
         <div class="collapse navbar-collapse">
           <ul class="nav navbar-nav">
-            <li class="active"><a href="#">Home</a></li>
-            <li><a href="#about">About</a></li>
-            <li><a href="#contact">Contact</a></li>
+            <li class="active"><a href="#">View 1</a></li>
+            <li><a href="#"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span></a></li>
           </ul>
-        </div><!--.nav-collapse -->
+          <ul class="nav navbar-nav navbar-right">
+            <li><a href="#">Console</a></li>
+            <li><a href="#">Settings</a></li>
+            <li><a href="#">More...</a></li>
+          </ul>
+        </div>
       </div>
     </nav>
     
-    <div class="viewport">
-      <div>
-        <table class="table table-hover table-condensed table-striped">
-          <tbody vs-repeat>
-            <tr class="row" data-sf-virtual-repeat="i in memRange">
-              <td class="col-xs-1">{{i|hex}}</td>
-              <td class="col-xs-1">HI</td>
-              <td class="col-xs-1">HI</td>
-              <td class="col-xs-3">HI</td>
-              <td class="col-xs-3">HI</td>
-              <td class="col-xs-3">HI</td>
-            </tr>
-          </tbody>
-        </table>
+    <div class="content container">
+      <table class="table-headers table table-condensed">
+        <tr class="row">
+          <th class="col-xs-1">Addr</th>
+          <th class="col-xs-1">Hex</th>
+          <th class="col-xs-1">Decimal</th>
+          <th class="col-xs-2">Binary</th>
+          <th class="col-xs-3">Label</th>
+          <th class="col-xs-4">Instruction</th>
+        </tr>
+      </table>
+      <div class="viewport" data-ng-controller="memController" data-ng-cloak>
+        <div>
+          <table class="table table-hover table-condensed table-striped">
+            <tbody>
+              <tr class="row" data-sf-virtual-repeat="i in constants.MEM_RANGE" ng-class="{'info': lc3_state.pc === {{i}}}">
+                <td class="mem-addr col-xs-1">{{i|inhex}}</td>
+                <td class="col-xs-1">
+                  <input class="plain-input mem-hex"
+                         data-ng-model="mem[i]"
+                         data-hex
+                         ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
+                </td>
+                <td class="mem-decimal col-xs-1">
+                  <input class="plain-input mem-decimal"
+                         type="number" 
+                         data-ng-model="mem[i]"
+                         data-decimal
+                         ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
+                </td>
+                <td class="mem-binary col-xs-2">
+                  <input class="plain-input mem-binary"
+                         data-ng-model="mem[i]"
+                         data-binary
+                         ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
+                </td>
+                <td class="mem-label col-xs-3"></td>
+                <td class="mem-instruction col-xs-4">HI</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
     
     <footer class="footer">
-      <p>
-        <div class="container">
-          <div class="row">
-            <div class="form-group col-xs-3" data-ng-repeat="i in [0,1,2,3]">
-              <div class="input-group">
-                <div class="input-group-addon">{{registers[i]}}</div>
-                <input class="form-control" type="text">
+        <div class="container" data-ng-cloak>
+          <div class="row button-row form-group" data-ng-controller="actionController">
+              <div class="col-sm-3">
+                <div class="container-fluid">
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <button class="action-btn btn btn-default btn-block" type="button"
+                              ng-click="doRun();">{{running?"Stop":"Run"}}</button>
+                    </div>
+                    <div class="col-sm-6">
+                      <button class="action-btn btn btn-default btn-block" type="button">Run For</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-3">
+                <div class="container-fluid">
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <button class="action-btn btn btn-default btn-block" type="button"
+                              ng-click="module.lc3_step(lc3_state); autoScroll();">Step</button>
+                    </div>
+                    <div class="col-sm-6">
+                      <button class="action-btn btn btn-default btn-block" type="button">Back</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-3">
+                <div class="container-fluid">
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <button class="action-btn btn btn-default btn-block" type="button">Next Line</button>
+                    </div>
+                    <div class="col-sm-6">
+                      <button class="action-btn btn btn-default btn-block" type="button">Prev Line</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-sm-3">
+                <div class="container-fluid">
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <button class="action-btn btn btn-default btn-block" type="button">Finish</button>
+                    </div>
+                    <div class="col-sm-6">
+                      <button class="action-btn btn btn-default btn-block" type="button">Rewind</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+          </div>
+          <div data-ng-controller="regController">
+            <div class="row">
+              <div class="form-group col-sm-3" data-ng-repeat="i in [0,1,2,3]">
+                <div class="input-group">
+                  <div class="input-group-addon">R{{i}}</div>
+                  <input class="form-control"
+                         type="text"
+                         data-ng-model="reg[i]"
+                         data-decimal
+                         ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
+                </div>
               </div>
             </div>
-          </div>
-          <div class="row">
-            <div class="form-group col-xs-3" data-ng-repeat="i in [4,5,6,7]">
-              <div class="input-group">
-                <div class="input-group-addon">{{registers[i]}}</div>
-                <input class="form-control" type="text">
+            <div class="row">
+              <div class="form-group col-sm-3">
+                <div class="input-group">
+                  <div class="input-group-addon">R4</div>
+                  <input class="form-control" 
+                         type="text"
+                         data-ng-model="reg[4]"
+                         data-decimal
+                         ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
+                </div>
+              </div>
+              <div class="form-group col-sm-3" data-ng-repeat="i in [5,6,7]">
+                <div class="input-group">
+                  <div class="input-group-addon">R{{i}}</div>
+                  <input class="form-control" 
+                         type="text"
+                         data-ng-model="reg[i]"
+                         data-hex
+                         ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
+                </div>
               </div>
             </div>
-          </div>
-          <div class="row">
-            <div class="form-group col-xs-3" data-ng-repeat="i in [8,9]">
-              <div class="input-group">
-                <div class="input-group-addon">{{registers[i]}}</div>
-                <input class="form-control" type="text">
+            <div class="row">
+              <div class="form-group col-sm-3">
+                <div class="input-group">
+                  <div class="input-group-addon">CC</div>
+                  <input class="form-control" type="text">
+                </div>
+              </div>
+              <div class="form-group col-sm-3">
+                <div class="input-group">
+                  <div class="input-group-addon">PC</div>
+                  <input class="form-control"
+                         type="text"
+                         data-ng-model="pc"
+                         data-hex
+                         ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
+                </div>
+              </div>
+              <div class="form-group col-sm-3">
+                <div class="input-group">
+                  <div class="input-group-addon">Go To Address:</div>
+                  <input class="form-control" type="text">
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </p>
     </footer>
   </div>
   <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
