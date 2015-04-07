@@ -10,7 +10,9 @@ Where comp.js comes from:
 3. Apply patch complx_patch.txt
 
 4. Run:
+  
   make liblc3.so CC='emcc --bind'
+  
   emcc --bind liblc3/liblc3.so -O2 -o comp.js -s ALLOW_MEMORY_GROWTH=1
 
 5. comp.js and comp.js.mem should be output
