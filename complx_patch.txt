@@ -1,0 +1,210 @@
+diff --git a/Makefile b/Makefile
+index c796934..d69a8cc 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,7 @@
+ # File intended only to be ran with GNU make. Use any other make program at your own risk!
+ PREFIX := /usr/local
+ export PREFIX
+-MASTER_CPP_FLAGS := -O3 -s -std=c++11
++MASTER_CPP_FLAGS := -O3 --static -std=c++11
+ export MASTER_CPP_FLAGS
+ INSTALL := install
+ ARCH = $(shell getconf LONG_BIT)
+@@ -15,8 +15,8 @@ liblc3.so :
+ as2obj : liblc3.so
+ 	$(MAKE) -C $@ $@ -f Makefile
+ 
+-#comp : liblc3.so
+-#	$(MAKE) -C $@ $@ -f Makefile
++comp : liblc3.so
++	$(MAKE) -C $@ $@ -f Makefile
+ 	
+ complx : liblc3.so
+ 	$(MAKE) -C $@ $@ -f Makefile
+diff --git a/comp/comp.cpp b/comp/comp.cpp
+index e66e19f..a375020 100644
+--- a/comp/comp.cpp
++++ b/comp/comp.cpp
+@@ -7,7 +7,6 @@ using namespace std;
+ 
+ 
+ 
+-
+ /*Based on complx. I have no idea what I'm doing yet */
+ //lc3_state state;
+ string current_filename;// = string();
+@@ -115,6 +114,14 @@ bool run_cmds(lc3_state& state, const string& cmd){
+ 	return ret;
+ }
+ 
++EMSCRIPTEN_BINDINGS(run_cmds) {
++  emscripten::function("run_cmds", static_cast<bool (*)(lc3_state&, const string&)>(&run_cmds));
++}
++
++EMSCRIPTEN_BINDINGS(start_simulator) {
++  emscripten::function("start_simulator", static_cast<void (*)(lc3_state&)>(&start_simulator));
++}
++
+ bool run_cmds(lc3_state& state, vector<string> & commands){
+ 	for(int i = 0; (unsigned int)i < commands.size()/*getting rid of errors*/; i++){
+ 		trim(commands[i]);
+diff --git a/liblc3/lc3.cpp b/liblc3/lc3.cpp
+index 1216d86..7edcc19 100644
+--- a/liblc3/lc3.cpp
++++ b/liblc3/lc3.cpp
+@@ -702,3 +702,10 @@ void lc3_randomize(lc3_state& state)
+         state.mem[i] = lc3_random();
+ }
+ 
++EMSCRIPTEN_BINDINGS(lc3_state) {
++  emscripten::class_<lc3_state>("lc3_state").constructor<>()
++    .function("getMem", &lc3_state::getMem)
++    .function("getRegs", &lc3_state::getRegs)
++    .property("pc", &lc3_state::pc);
++}
++
+diff --git a/liblc3/lc3.hpp b/liblc3/lc3.hpp
+index a61ad55..52f81f6 100644
+--- a/liblc3/lc3.hpp
++++ b/liblc3/lc3.hpp
+@@ -8,6 +8,7 @@
+ #include <list>
+ #include <vector>
+ #include <cstdlib>
++#include <emscripten/bind.h>
+ 
+ #define SIGN_CHR(x) (((x) < 0) ? "-" : "+")
+ #define SIGN_NEG_CHR(x) (((x) < 0) ? "-" : "")
+@@ -413,6 +414,13 @@ typedef struct lc3_state
+ 
+     short mem[65536];
+ 
++    int getMem() {
++      return (int) mem;
++    }
++    int getRegs() {
++      return (int) regs;
++    }
++
+     // Stream for input
+     std::istream* input;
+     int (*reader)(lc3_state& state, std::istream& file); // Function to read and consume one character from stream
+diff --git a/liblc3/lc3_runner.cpp b/liblc3/lc3_runner.cpp
+index 710abf8..5bffcb5 100644
+--- a/liblc3/lc3_runner.cpp
++++ b/liblc3/lc3_runner.cpp
+@@ -6,7 +6,7 @@
+ #include "lc3_runner.hpp"
+ #include "lc3_execute.hpp"
+ #include "lc3_os.hpp"
+-
++#include <emscripten.h>
+ /** lc3_init
+   *
+   * Initializes the state of the lc3
+@@ -95,6 +95,10 @@ void lc3_init(lc3_state& state, bool randomize)
+     state.in_lc3test = false;
+ }
+ 
++EMSCRIPTEN_BINDINGS(lc3_init) {
++  emscripten::function("lc3_init", &lc3_init);
++}
++
+ /** lc3_remove_plugins
+   *
+   *
+@@ -129,18 +133,32 @@ void lc3_remove_plugins(lc3_state& state)
+     state.devicePlugins[0xFFFE] = NULL;
+ }
+ 
++void lc3_run_helper(void *arg) {
++  lc3_state& state = *(lc3_state *) arg;
++  for (int i = 0; i < 256; i++) {
++    if (!state.halted) {
++      lc3_step(state);
++    } else {
++      emscripten_cancel_main_loop();
++      break;
++    }
++  }
++}
++
+ /** lc3_run
+   *
+   * Runs the machine until the machine is halted.
+   */
+ void lc3_run(lc3_state& state)
+ {
++    emscripten_cancel_main_loop();
+     // Do this until halted
+-    while (!state.halted)
+-    {
+-        // Step one instruction
+-        lc3_step(state);
+-    }
++    void *arg = &state;
++    emscripten_set_main_loop_arg(lc3_run_helper, arg, 0, 0);
++}
++
++EMSCRIPTEN_BINDINGS(lc3_run) {
++  emscripten::function("lc3_run", (void (*)(lc3_state&))&lc3_run);
+ }
+ 
+ /** lc3_run
+@@ -240,6 +258,10 @@ void lc3_step(lc3_state& state)
+     lc3_break_test(state, &interrupt);
+ }
+ 
++EMSCRIPTEN_BINDINGS(lc3_step) {
++  emscripten::function("lc3_step", &lc3_step);
++}
++
+ /** lc3_back
+   *
+   * Backsteps one instruction
+@@ -321,6 +343,11 @@ void lc3_back(lc3_state& state)
+     state.undo_stack.pop_back();
+ }
+ 
++EMSCRIPTEN_BINDINGS(lc3_back) {
++  emscripten::function("lc3_back", &lc3_back);
++}
++
++
+ /** lc3_rewind
+   *
+   * Backsteps many instructions
+@@ -392,6 +419,10 @@ void lc3_next_line(lc3_state& state)
+     } while (depth != 0 && !state.halted);
+ }
+ 
++EMSCRIPTEN_BINDINGS(lc3_next_line) {
++  emscripten::function("lc3_next_line", &lc3_next_line);
++}
++
+ /** lc3_prev_line
+   *
+   * Undos the current instruction ignoring subroutines
+@@ -433,6 +464,10 @@ void lc3_prev_line(lc3_state& state)
+     } while (depth != 0 && !state.halted && !state.undo_stack.empty());
+ }
+ 
++EMSCRIPTEN_BINDINGS(lc3_prev_line) {
++  emscripten::function("lc3_prev_line", &lc3_prev_line);
++}
++
+ /** lc3_finish
+   *
+   * Finishes the current subroutine
+@@ -467,6 +502,10 @@ void lc3_finish(lc3_state& state)
+     } while (depth != 0 && !state.halted);
+ }
+ 
++EMSCRIPTEN_BINDINGS(lc3_finish) {
++  emscripten::function("lc3_finish", &lc3_finish);
++}
++
+ /** lc3_interrupt
+   *
+   * Checks for and processes a single pending interrupt.
