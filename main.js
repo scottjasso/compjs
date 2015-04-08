@@ -17,14 +17,6 @@ angular.module('complxApp', ['sf.virtualScroll'])
     $scope.module = Module;
     $scope.lc3_state = new Module.lc3_state();
     $scope.running = false;
-
-    $scope.pc = function(newValue) {
-      if (angular.isDefined(newValue)) {
-        $scope.lc3_state.pc = 0xFFFF & newValue; 
-      } else {
-        return 0x100000 + $scope.lc3_state.pc;
-      }
-    };
     
     $scope.autoScroll = function() {      
       $(".viewport").scrollTop($scope.lc3_state.pc * 31 - $(".viewport").height()/2); 
@@ -105,6 +97,25 @@ angular.module('complxApp', ['sf.virtualScroll'])
     }
     return arr;
   }();
+
+  $scope.cc = function () {
+    return function(newValue) {
+      if (angular.isDefined(newValue)) {
+        $scope.lc3_state.n = newValue.n;
+        $scope.lc3_state.z = newValue.z;
+        $scope.lc3_state.p = newValue.p;
+      }
+      return $scope.lc3_state;
+    };
+  }();
+
+  $scope.pc = function(newValue) {
+    if (angular.isDefined(newValue)) {
+      $scope.lc3_state.pc = 0xFFFF & newValue;
+    } else {
+      return 0x100000 + $scope.lc3_state.pc;
+    }
+  };
 }])
 
 .service('util', ['constants', 'settings', function(constants, settings) {
@@ -125,16 +136,35 @@ angular.module('complxApp', ['sf.virtualScroll'])
   };
 }])
 
-.service('settings', function() {
-  this.decimalUnsigned = false;
-})
-
 .filter('inhex', function() {
   return function(number) {
     if (number !== null && number !== undefined) {
       return String('0000' + (number).toString(16).toUpperCase()).slice(-4);
     }
-  }
+  };
+})
+
+.directive('cc', function() {
+  return {
+    restrict: 'A',
+    require: 'ngModel',
+    link: function(scope, element, attr, ngModel) {
+      ngModel.$parsers.push(function(value) {
+        if (value == 'n' || value == 'N') {
+          return {n:1, z:0, p:0};
+        } else if (value == 'z' || value == 'Z') {
+          return {n:0, z:1, p:0};
+        } else if (value == 'p' || value == 'P') {
+          return {n:0, z:0, p:1};
+        } else {
+          return undefined;
+        }
+      });
+      ngModel.$formatters.push(function(value) {
+        return value.n ? 'n' : value.z ? 'z' : value.p ? 'p' : undefined;
+      });
+    }
+  };
 })
 
 .directive('hex', function() {
@@ -183,6 +213,37 @@ angular.module('complxApp', ['sf.virtualScroll'])
   };
 })
 
+.directive('disassemble', function() {
+  return {
+    restrict: 'A',
+    require: 'ngModel',
+    link: function(scope, element, attr, ngModel) {
+      ngModel.$parsers.push(function(value) {
+        return scope.module.lc3_assemble_one(scope.lc3_state, scope.addr, value, -1, false, false, false, false);
+      });
+      ngModel.$formatters.push(function(value) {
+        value -= 0x100000;
+        var ret;
+        var pc = scope.lc3_state.pc;
+        scope.lc3_state.pc = scope.addr + 1;
+        switch(scope.settings.disassemble) {
+          case scope.constants.DISASSEMBLE.BASIC:
+            ret = scope.module.lc3_basic_disassemble(scope.lc3_state, value);
+            break;
+          case scope.constants.DISASSEMBLE.REGULAR:
+            ret = scope.module.lc3_disassemble(scope.lc3_state, value);
+            break;
+          case scope.constants.DISASSEMBLE.SMART:
+            ret = scope.module.lc3_smart_disassemble(scope.lc3_state, value);
+            break;
+        }
+        scope.lc3_state.pc = pc;
+        return ret;
+      });
+    }
+  };
+})
+
 .service('constants', function() {
   this.SHORT_TYPE = 'i16';
   this.SHORT_SIZE =  2;
@@ -192,6 +253,17 @@ angular.module('complxApp', ['sf.virtualScroll'])
   this.MEM_RANGE = Array.apply(null, {length: this.MEM_SIZE}).map(Number.call, Number);
 
   this.REGS_SIZE = 8;
+
+  this.DISASSEMBLE = Object.freeze({
+    BASIC: 1,
+    REGULAR: 2,
+    SMART: 3
+  });
+})
+
+.service('settings', function() {
+  this.decimalUnsigned = false;
+  this.disassemble = 3; // REGULAR
 })
 
 .value('Module', Module);
