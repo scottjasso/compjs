@@ -4,25 +4,65 @@ var Module = {
   onRuntimeInitialized: function() {
     angular.bootstrap(document, ['complxApp']);
     angular.element($(".controller")).scope().autoScroll();
-  }
+  },
+  noInitialRun: true,
+  noExitRuntime: true
 }
 
 angular.module('complxApp', ['sf.virtualScroll'])
 
-.controller('complxController', ['$scope', 'Module', 'constants', 'settings', 'util',
-  function($scope, Module, constants, settings, util) {
+.controller('complxController', ['$scope', 'Module', 'constants', 'settings', 'util', 'throttle',
+  function($scope, Module, constants, settings, util, throttle) {
     $scope.constants = constants;
     $scope.settings = settings;
     $scope.util = util;
     $scope.module = Module;
-    $scope.lc3_state = new Module.lc3_state();
     $scope.running = false;
     
+    $scope.lc3_state = function() {
+      var lc3_state = new Module.lc3_state();
+      $scope.module.lc3_init(lc3_state, true);
+
+      if ($scope.settings.autoSave) {
+        var str = localStorage.getItem("lc3-state");
+        if (str !== null) {
+          var buf = $scope.module.HEAPU16;
+          var start = lc3_state.$$.ptr >> 1;
+          var strLen = str.length;
+          for (var i = 0; i < strLen; i++) {
+            buf[start + i] = str.charCodeAt(i);
+          }
+        }
+      }
+      return lc3_state;
+    }();
+    
+    $scope.resetMachine = function() {
+      var old = $scope.lc3_state;
+      $scope.lc3_state = new Module.lc3_state();
+      Module._free(old);
+      Module.lc3_init($scope.lc3_state, true);
+      $scope.autoScroll();
+    }
+
     $scope.autoScroll = function() {      
-      $(".viewport").scrollTop($scope.lc3_state.pc * 31 - $(".viewport").height()/2); 
+      $scope.scrollTo($scope.lc3_state.pc);
     };
 
-    $scope.module.lc3_init($scope.lc3_state, true);
+    $scope.scrollTo = function(addr) {
+      $(".viewport").scrollTop(addr * 31 - $(".viewport").height()/2); 
+    }
+
+    if ($scope.settings.autoSave) {
+      $scope.$watch(throttle(function() {
+        var lc3_state_size = 132136; // hardcoded sizeof(lc3_state) !!!
+        var ptr = $scope.lc3_state.$$.ptr;
+
+        var save = String.fromCharCode.apply(null, $scope.module.HEAPU16.subarray(ptr >> 1, (ptr + lc3_state_size) >> 1));
+        localStorage.setItem("lc3-state", save);
+        //console.log("Saving...");
+      }, 1000));
+    }
   }
 ])
 
@@ -48,24 +88,52 @@ angular.module('complxApp', ['sf.virtualScroll'])
 .controller('memController', ['$scope', function($scope) {
   $scope.mem = function() {
     var arr = [];
-    for (var i = 0; i < $scope.constants.MEM_SIZE; i++) {
+    for (var addr = 0; addr < $scope.constants.MEM_SIZE; addr++) {
       arr.push(
-        function(i) {
+        function(addr) {
           return function(newValue) {
             if (angular.isDefined(newValue)) {
               $scope.module.setValue(
-                $scope.lc3_state.getMem() + $scope.constants.SHORT_SIZE * i,
+                $scope.lc3_state.getMem() + $scope.constants.SHORT_SIZE * addr,
                 newValue,
                 $scope.constants.SHORT_TYPE
               );
             } else {
               return 0x100000 + $scope.module.getValue(
-                $scope.lc3_state.getMem() + $scope.constants.SHORT_SIZE * i,
+                $scope.lc3_state.getMem() + $scope.constants.SHORT_SIZE * addr,
                 $scope.constants.SHORT_TYPE
               );
             }
           }
-        }(i)
+        }(addr)
+      );
+    }
+    return arr;
+  }();
+
+  $scope.label = function() {
+    var arr = [];
+    for (var addr = 0; addr < $scope.constants.MEM_SIZE; addr++) {
+      arr.push(
+        function(addr) {
+          return function(newValue) {
+            if (angular.isDefined(newValue)) {
+              var old = $scope.module.lc3_sym_rev_lookup($scope.lc3_state, addr);
+              if (old !== "") {
+                $scope.module.lc3_sym_delete($scope.lc3_state, old);
+              }
+              var data = $scope.module.lc3_sym_lookup($scope.lc3_state, newValue);
+              if (data === -1) {
+                $scope.module.lc3_sym_add($scope.lc3_state, newValue, addr); 
+              } else {
+                alert("BAD STUDENT! The symbol " + newValue + " already exists at address 0x"
+                      + $scope.util.shortToHexString(addr));
+              }
+            } else {
+              return $scope.module.lc3_sym_rev_lookup($scope.lc3_state, addr);
+            }
+          }
+        }(addr)
       );
     }
     return arr;
@@ -75,24 +143,24 @@ angular.module('complxApp', ['sf.virtualScroll'])
 .controller('regController', ['$scope', function($scope) {
   $scope.reg = function() {
     var arr = [];
-    for (var i = 0; i < $scope.constants.REGS_SIZE; i++) {
+    for (var addr = 0; addr < $scope.constants.REGS_SIZE; addr++) {
       arr.push(
-        function(i) {
+        function(addr) {
           return function(newValue) {
             if (angular.isDefined(newValue)) {
               $scope.module.setValue(
-                $scope.lc3_state.getRegs() + $scope.constants.SHORT_SIZE * i,
+                $scope.lc3_state.getRegs() + $scope.constants.SHORT_SIZE * addr,
                 newValue,
                 $scope.constants.SHORT_TYPE
               );
             } else {
               return 0x100000 + $scope.module.getValue(
-                $scope.lc3_state.getRegs() + $scope.constants.SHORT_SIZE * i,
+                $scope.lc3_state.getRegs() + $scope.constants.SHORT_SIZE * addr,
                 $scope.constants.SHORT_TYPE
               );
             }
           }
-        }(i)
+        }(addr)
       );
     }
     return arr;
@@ -176,7 +244,7 @@ angular.module('complxApp', ['sf.virtualScroll'])
         return /^(0x)?[0-9A-Fa-f]*$/.test(value) ? 0xFFFF & parseInt(value, 16) : undefined;
       });
       ngModel.$formatters.push(function(value) {
-        return scope.util.shortToHexString(value - 0x100000);
+        return scope.util.shortToHexString(value & 0xFFFF);
       });
     }
   };
@@ -192,7 +260,7 @@ angular.module('complxApp', ['sf.virtualScroll'])
         return 0xFFFF & parseInt(value, 10);
       });
       ngModel.$formatters.push(function(value) {
-        return scope.util.shortToDecimal(value - 0x100000);
+        return scope.util.shortToDecimal(value & 0xFFFF);
       });
     }
   };
@@ -207,7 +275,7 @@ angular.module('complxApp', ['sf.virtualScroll'])
         return /^[01]*$/.test(value) ? 0xFFFF & parseInt(value, 2) : undefined;
       });
       ngModel.$formatters.push(function(value) {
-        return scope.util.shortToBinaryString(value - 0x100000);
+        return scope.util.shortToBinaryString(value & 0xFFFF);
       });
     }
   };
@@ -219,10 +287,15 @@ angular.module('complxApp', ['sf.virtualScroll'])
     require: 'ngModel',
     link: function(scope, element, attr, ngModel) {
       ngModel.$parsers.push(function(value) {
-        return scope.module.lc3_assemble_one(scope.lc3_state, scope.addr, value, -1, false, false, false, false);
+        try {
+          return scope.module.lc3_assemble_one(scope.lc3_state, scope.addr, value, -1, false, false, false, false);
+        } catch (e) {
+          alert("BAD STUDENT: " + Pointer_stringify(e));
+          scope.module._free(e);
+        }
       });
       ngModel.$formatters.push(function(value) {
-        value -= 0x100000;
+        value = value & 0xFFFF
         var ret;
         var pc = scope.lc3_state.pc;
         scope.lc3_state.pc = scope.addr + 1;
@@ -242,6 +315,42 @@ angular.module('complxApp', ['sf.virtualScroll'])
       });
     }
   };
+})
+
+.directive('ngEnter', function () {
+    return function (scope, element, attrs) {
+        element.bind("keydown keypress", function (event) {
+            if(event.which === 13) {
+                scope.$apply(function (){
+                    scope.$eval(attrs.ngEnter);
+                });
+
+                event.preventDefault();
+            }
+        });
+    };
+})
+
+.factory('throttle', function() {
+  return function(callback, delay) {
+    var last_exec = 0;
+    var timeout_id;
+
+    return function() {
+      var that = this;
+      var elapsed = +new Date() - last_exec;
+      function exec() {
+        last_exec = +new Date();
+        callback.apply(that);
+      }
+      timeout_id && clearTimeout(timeout_id);
+      if (elapsed > delay) {
+        exec();
+      } else {
+        timeout_id = setTimeout(exec, delay - elapsed);
+      }
+    }
+  }
 })
 
 .service('constants', function() {
@@ -264,6 +373,8 @@ angular.module('complxApp', ['sf.virtualScroll'])
 .service('settings', function() {
   this.decimalUnsigned = false;
   this.disassemble = 3; // REGULAR
+
+  this.autoSave = typeof(localStorage) !== "undefined";
 })
 
 .value('Module', Module);

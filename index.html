@@ -77,7 +77,11 @@
                          data-binary
                          ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
                 </td>
-                <td class="mem-label col-xs-3"></td>
+                <td class="mem-label col-xs-3">
+                  <input class="plain-input"
+                         data-ng-model="label[addr]"
+                         ng-model-options="{ updateOn: 'blur change', getterSetter: true }">
+                </td>
                 <td class="mem-instruction col-xs-4">
                   <input class="plain-input"
                          data-ng-model="mem[addr]"
@@ -115,7 +119,8 @@
                               ng-click="module.lc3_step(lc3_state); autoScroll();">Step</button>
                     </div>
                     <div class="col-sm-6">
-                      <button class="action-btn btn btn-default btn-block" type="button">Back</button>
+                      <button class="action-btn btn btn-default btn-block" type="button"
+                              ng-click="module.lc3_back(lc3_state); autoScroll();">Back</button>
                     </div>
                   </div>
                 </div>
@@ -124,10 +129,12 @@
                 <div class="container-fluid">
                   <div class="row">
                     <div class="col-sm-6">
-                      <button class="action-btn btn btn-default btn-block" type="button">Next Line</button>
+                      <button class="action-btn btn btn-default btn-block" type="button"
+                              ng-click="module.lc3_next_line(lc3_state); autoScroll();">Next Line</button>
                     </div>
                     <div class="col-sm-6">
-                      <button class="action-btn btn btn-default btn-block" type="button">Prev Line</button>
+                      <button class="action-btn btn btn-default btn-block" type="button"
+                              ng-click="module.lc3_prev_line(lc3_state); autoScroll();">Prev Line</button>
                     </div>
                   </div>
                 </div>
@@ -204,8 +211,16 @@
               <div class="form-group col-sm-3">
                 <div class="input-group">
                   <div class="input-group-addon">Go To Address:</div>
-                  <input class="form-control" type="text">
+                  <input class="form-control"
+                         type="text"
+                         data-ng-model="goToAddr"
+                         ng-enter="scrollTo(goToAddr);goToAddr='';"/>
                 </div>
+              </div>
+              <div class="form-group col-sm-3">
+                <button class="btn btn-default btn-block"
+                       type="button"
+                       ng-click="resetMachine();">Reset Machine</button>
               </div>
             </div>
           </div>
