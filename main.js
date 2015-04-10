@@ -57,8 +57,12 @@ angular.module('complxApp', ['sf.virtualScroll'])
       $scope.$watch(throttle(function() {
         var lc3_state_size = 132136; // hardcoded sizeof(lc3_state) !!!
         var ptr = $scope.lc3_state.$$.ptr;
-
-        var save = String.fromCharCode.apply(null, $scope.module.HEAPU16.subarray(ptr >> 1, (ptr + lc3_state_size) >> 1));
+        var state_mem = $scope.module.HEAPU16.subarray(ptr >> 1, (ptr + lc3_state_size) >> 1);
+        var save = "";
+        var len = state_mem.length;
+        for (var i = 0; i < len; i++) {
+          save += String.fromCharCode(state_mem[i]);
+        }                       
         localStorage.setItem("lc3-state", save);
         //console.log("Saving...");
       }, 1000));
